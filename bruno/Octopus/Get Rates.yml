@@ -1,0 +1,17 @@
+info:
+  name: Get Rates
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: https://api.octopus.energy/v1/products/INTELLI-FLUX-IMPORT-23-07-14/electricity-tariffs/E-1R-INTELLI-FLUX-IMPORT-23-07-14-A/standard-unit-rates/
+  auth:
+    type: basic
+    username: "{{OCTOPUS_API_KEY}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

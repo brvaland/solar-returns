@@ -1,0 +1,18 @@
+info:
+  name: Get Account Tariff
+  type: http
+  seq: 3
+
+http:
+  method: GET
+  url: https://api.octopus.energy/v1/accounts/{{OCTOPUS_ACCOUNT_NO}}
+  auth:
+    type: basic
+    username: "{{OCTOPUS_API_KEY}}"
+    password: ""
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

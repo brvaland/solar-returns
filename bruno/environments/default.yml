@@ -1,0 +1,12 @@
+name: default
+variables:
+  - name: OCTOPUS_API_KEY
+    value: "{{process.env.OCTOPUS_API_KEY}}"
+  - name: EXPORT_MPAN
+    value: "{{process.env.EXPORT_MPAN}}"
+  - name: METER_SERIAL
+    value: "{{process.env.METER_SERIAL}}"
+  - name: IMPORT_MPAN
+    value: "{{process.env.IMPORT_MPAN}}"
+  - name: OCTOPUS_ACCOUNT_NO
+    value: A-9FE6CC9D

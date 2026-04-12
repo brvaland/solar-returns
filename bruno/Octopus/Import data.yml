@@ -1,0 +1,27 @@
+info:
+  name: Import data
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: https://api.octopus.energy/v1/electricity-meter-points/{{IMPORT_MPAN}}/meters/{{METER_SERIAL}}/consumption/?period_from=2025-09-04T00:00:00Z&period_to=2025-10-04T00:00:00Z&order_by=period
+  params:
+    - name: period_from
+      value: 2025-09-04T00:00:00Z
+      type: query
+    - name: period_to
+      value: 2025-10-04T00:00:00Z
+      type: query
+    - name: order_by
+      value: period
+      type: query
+  auth:
+    type: basic
+    username: "{{OCTOPUS_API_KEY}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
