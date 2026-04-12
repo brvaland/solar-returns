@@ -1,8 +1,12 @@
 import logging
+import argparse
+import os
+import pandas as pd
 from src.octopus_api import get_import_consumption, get_export_consumption
 from src.calculations import calculate_return_for_interval, aggregate_by_peak_offpeak
 from src.excel_writer import update_excel
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 # Configure logging
 logging.basicConfig(
@@ -11,12 +15,94 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def main():
-    logger.info("Starting solar return calculation")
+def get_default_dates_from_last_row(file_path="data/solar_return.xlsx"):
+    """
+    Read the last row from the Excel file and calculate next month's date range.
+    If file doesn't exist or is empty, returns None.
+    """
+    try:
+        if not os.path.exists(file_path):
+            return None
+        
+        # Read the Excel file
+        xls = pd.ExcelFile(file_path)
+        
+        # Get the first sheet
+        df = pd.read_excel(file_path, sheet_name=0)
+        
+        if df.empty:
+            return None
+        
+        # Get the last row
+        last_row = df.iloc[-1]
+        month_value = last_row.get("month")
+        
+        if not month_value:
+            return None
+        
+        # Parse the month value (format: "04-Mar:31-Mar")
+        if ":" in str(month_value):
+            date_parts = str(month_value).split(":")
+            end_date_str = date_parts[1].strip()  # "31-Mar"
+        else:
+            return None
+        
+        # Parse the end date to get the current month
+        # Format is "DD-MMM" like "31-Mar"
+        try:
+            # Add current year to parse correctly
+            current_year = datetime.now().year
+            end_date = datetime.strptime(f"{end_date_str}-{current_year}", "%d-%b-%Y")
+        except ValueError:
+            return None
+        
+        # Calculate next month's dates (4th to last day of next month)
+        next_month = end_date + relativedelta(days=1)  # Move to next day
+        next_month_start = next_month.replace(day=4)  # Start of next month (4th)
+        next_month_end = (next_month_start + relativedelta(months=1)) - timedelta(days=1)  # Last day of month
+        
+        # Format as ISO 8601
+        target_date_from = next_month_start.strftime("%Y-%m-%dT00:00:00Z")
+        target_date_to = (next_month_end + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
+        
+        logger.info(f"Auto-detected next bill cycle from last row: {target_date_from} to {target_date_to}")
+        return (target_date_from, target_date_to)
+    
+    except Exception as e:
+        logger.debug(f"Could not read default dates from Excel file: {e}")
+        return None
 
-    # Define the day you want
-    target_date_from = "2026-03-04T00:00:00Z"
-    target_date_to = "2026-04-01T00:00:00Z"
+def date_to_iso(date_str, is_end_date=False):
+    """
+    Convert simple date format (YYYY-MM-DD) to ISO format (YYYY-MM-DDTHH:MM:SSZ).
+    If input is already in ISO format, return as-is.
+    
+    For end dates, automatically adds 1 day (represents end of day at 23:59:59).
+    """
+    if "T" in date_str:
+        # Already in ISO format
+        return date_str
+    
+    try:
+        # Parse simple date format
+        parsed = datetime.strptime(date_str, "%Y-%m-%d")
+        
+        # Add 1 day for end dates (to capture full day including last hour)
+        if is_end_date:
+            parsed = parsed + timedelta(days=1)
+        
+        return parsed.strftime("%Y-%m-%dT00:00:00Z")
+    except ValueError:
+        raise ValueError(f"Invalid date format. Please use YYYY-MM-DD (e.g., 2026-01-01)")
+
+def extract_date_part(iso_date):
+    """Extract YYYY-MM-DD part from ISO format date string."""
+    if "T" in iso_date:
+        return iso_date.split("T")[0]
+    return iso_date
+
+def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:00:00Z"):
+    logger.info("Starting solar return calculation")
     logger.info(f"Date range: {target_date_from} to {target_date_to}")
 
     logger.info("Fetching import consumption data...")
@@ -92,14 +178,128 @@ def main():
     date_to = date_to - timedelta(days=1)
     
     date_range = f"{date_from.strftime('%d-%b')}:{date_to.strftime('%d-%b')}"
+    year = date_from.strftime('%Y')
     
     # Update Excel with aggregated results
     logger.info(f"Updating Excel with aggregated data for {date_range}")
-    update_excel(total_results, month=date_range)
+    update_excel(total_results, month=date_range, sheet_name=year)
     logger.info(f"Added row for {date_range}: {intervals_count} intervals, "
                 f"net return = {total_results['net return']:.2f}")
 
     logger.info(f"✅ Solar return updated successfully")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="☀️  Solar Return Calculator - Calculate your solar import/export returns",
+        add_help=False
+    )
+    parser.add_argument(
+        "--from",
+        dest="target_date_from",
+        default=None,
+        help="Start date in YYYY-MM-DD format (e.g., 2026-01-01)"
+    )
+    parser.add_argument(
+        "--to",
+        dest="target_date_to",
+        default=None,
+        help="End date in YYYY-MM-DD format (e.g., 2026-02-04)"
+    )
+    parser.add_argument(
+        "-h", "--help",
+        action="store_true",
+        help="Show help message"
+    )
+    
+    args = parser.parse_args()
+    
+    # Show help if requested
+    if args.help:
+        print("\n" + "="*60)
+        print("☀️  SOLAR RETURN CALCULATOR")
+        print("="*60)
+        print("\nThis utility calculates your solar panel returns by:")
+        print("  • Fetching half-hourly import/export consumption data")
+        print("  • Applying peak (16:00-19:00) and off-peak rates")
+        print("  • Calculating import costs and export income")
+        print("  • Exporting results to Excel with professional formatting")
+        print("\nUsage:")
+        print("  poetry run python main.py")
+        print("    → Interactive mode (prompts for dates)")
+        print("\n  poetry run python main.py --from 2026-01-01 --to 2026-02-03")
+        print("    → Command-line mode with specific dates")
+        print("    (Note: end date automatically adds 1 day, so 02-03 becomes 02-04)")
+        print("\nDate format: YYYY-MM-DD (e.g., 2026-01-01)")
+        print("="*60 + "\n")
+        exit(0)
+    
+    # Convert command-line dates to ISO format if provided
+    if args.target_date_from:
+        try:
+            args.target_date_from = date_to_iso(args.target_date_from, is_end_date=False)
+        except ValueError as e:
+            print(f"Error parsing start date: {e}")
+            exit(1)
+    
+    if args.target_date_to:
+        try:
+            args.target_date_to = date_to_iso(args.target_date_to, is_end_date=True)
+        except ValueError as e:
+            print(f"Error parsing end date: {e}")
+            exit(1)
+    
+    # Interactive mode if no dates provided
+    if args.target_date_from is None or args.target_date_to is None:
+        print("\n" + "="*60)
+        print("☀️  SOLAR RETURN CALCULATOR")
+        print("="*60)
+        print("\nThis utility calculates your solar import/export returns")
+        print("with peak (16:00-19:00) and off-peak rate calculations.\n")
+        print("Results are saved to Excel with professional formatting.")
+        print("-"*60)
+        
+        # Try to get defaults from last row in Excel file
+        auto_dates = get_default_dates_from_last_row()
+        if auto_dates:
+            default_from, default_to = auto_dates
+            # Extract 3rd of the month for display (code already has 4th)
+            default_to_dt = datetime.fromisoformat(default_to.replace('Z', '+00:00'))
+            default_to_display = (default_to_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            print("\n✓ Auto-detected next bill cycle from Excel history")
+        else:
+            # Default to January 1 to February 3 (code adds 1 day automatically)
+            current_year = datetime.now().year
+            jan_start = datetime(current_year, 1, 1)
+            feb_3rd = datetime(current_year, 2, 3)
+            
+            default_from = jan_start.strftime("%Y-%m-%dT00:00:00Z")
+            default_to_display = feb_3rd.strftime("%Y-%m-%d")
+            default_to = (feb_3rd + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
+            print(f"\n(No existing data found - defaulting to Jan 1 - Feb 3, {current_year})")
+        
+        # Extract date parts for display (YYYY-MM-DD format)
+        default_from_display = extract_date_part(default_from)
+        
+        date_from_input = input(f"\nEnter start date YYYY-MM-DD (default: {default_from_display}): ").strip()
+        if date_from_input:
+            try:
+                args.target_date_from = date_to_iso(date_from_input, is_end_date=False)
+            except ValueError as e:
+                print(f"Error: {e}")
+                args.target_date_from = default_from
+        else:
+            args.target_date_from = default_from
+        
+        date_to_input = input(f"Enter end date YYYY-MM-DD (default: {default_to_display}): ").strip()
+        if date_to_input:
+            try:
+                args.target_date_to = date_to_iso(date_to_input, is_end_date=True)
+            except ValueError as e:
+                print(f"Error: {e}")
+                args.target_date_to = default_to
+        else:
+            args.target_date_to = default_to
+        
+        print("="*60 + "\n")
+    
+    main(args.target_date_from, args.target_date_to)

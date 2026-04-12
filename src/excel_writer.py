@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime
 
-def update_excel(data, file_path="data/solar_return.xlsx", month=None):
+def update_excel(data, file_path="data/solar_return.xlsx", month=None, sheet_name="Sheet1"):
     if month is None:
         month = datetime.now().strftime("%Y-%m")
     
@@ -30,10 +30,10 @@ def update_excel(data, file_path="data/solar_return.xlsx", month=None):
 
     # Write to Excel with formatting
     with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
         
         # Apply formatting
-        worksheet = writer.sheets['Sheet1']
+        worksheet = writer.sheets[sheet_name]
         from openpyxl.styles import numbers, PatternFill, Font
         
         # Orange fill for header row
