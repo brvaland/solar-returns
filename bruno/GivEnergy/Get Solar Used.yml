@@ -1,0 +1,28 @@
+info:
+  name: Get Solar Used
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: https://api.givenergy.cloud/v1/inverter/ED2253G277/data-points/2026-03-22?pageSize=300
+  params:
+    - name: pageSize
+      value: "300"
+      type: query
+  auth:
+    type: bearer
+    token: "{{GIVENERGY_API_KEY}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  To calculate solar used by home.
+
+  Take snapshot of every 6th record
+
+  solar home usage = today.solar - (today.grid.export + today.battery.charge)

@@ -9,4 +9,8 @@ variables:
   - name: IMPORT_MPAN
     value: "{{process.env.IMPORT_MPAN}}"
   - name: OCTOPUS_ACCOUNT_NO
-    value: A-9FE6CC9D
+    value: "{{process.env.OCTOPUS_ACCOUNT_NO}}"
+  - name: GIVENERGY_API_KEY
+    value: "{{process.env.GIVENERGY_API_KEY}}"
+  - name: GIVENERGY_DEVICE_ID
+    value: "{{process.env.GIVENERGY_DEVICE_ID}}"

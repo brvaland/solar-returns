@@ -3,9 +3,10 @@ import argparse
 import os
 import pandas as pd
 from src.octopus_api import get_import_consumption, get_export_consumption
+from src.givenergy_api import get_solar_generation
 from src.calculations import calculate_return_for_interval, aggregate_by_peak_offpeak
 from src.excel_writer import update_excel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta
 
 # Configure logging
@@ -112,14 +113,46 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
     logger.info("Fetching export consumption data...")
     export_data = get_export_consumption(target_date_from, target_date_to)
     logger.info(f"Retrieved {len(export_data)} export data points")
+    
+    logger.info("Fetching GivEnergy solar generation data...")
+    # Extract date parts for GivEnergy API (format: YYYY-MM-DD)
+    solar_date_from = extract_date_part(target_date_from)
+    solar_date_to = extract_date_part(target_date_to)
+    solar_data = get_solar_generation(solar_date_from, solar_date_to)
+    logger.info(f"Retrieved {len(solar_data)} solar data points")
 
     # Create a map of export data by interval_start for easy lookup
     export_by_interval = {d["interval_start"]: float(d["consumption"]) for d in export_data}
+    
+    # Create a map of solar self-use data by interval_start for easy lookup
+    # Convert GivEnergy start_time format ("2025-09-01 00:00") to octopus format ("2025-09-01T00:00:00Z")
+    solar_by_interval = {}
+    for item in solar_data:
+        try:
+            # Parse GivEnergy format and convert to ISO format with Z suffix
+            givenergy_time = datetime.strptime(item["start_time"], "%Y-%m-%d %H:%M")
+            octopus_time = givenergy_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            self_use = float(item["data"].get("0", 0))
+            solar_by_interval[octopus_time] = self_use
+        except (ValueError, KeyError) as e:
+            logger.debug(f"Could not parse solar data item: {e}")
+    
+    logger.info(f"Solar data mapped to {len(solar_by_interval)} intervals")
+    if solar_by_interval:
+        sample_keys = list(solar_by_interval.keys())[:3]
+        logger.info(f"Sample solar interval times: {sample_keys}")
+    else:
+        logger.warning("No solar intervals were mapped from GivEnergy data")
 
     # Process each half-hourly import record
     all_results = []
     logger.info(f"Processing {len(import_data)} half-hourly intervals...")
     
+    if import_data:
+        sample_interval = import_data[0]["interval_start"]
+        logger.info(f"Sample import interval_start format: {sample_interval}")
+    
+    non_zero_solar_count = 0
     for import_record in import_data:
         interval_start = import_record["interval_start"]
         import_kwh = float(import_record["consumption"])
@@ -127,8 +160,20 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
         # Get corresponding export data for this interval
         export_kwh = export_by_interval.get(interval_start, 0)
         
-        # TEMP assumption: no self-use (replace later with actual self-use calculation)
-        self_use_kwh = 0
+        # Convert interval_start to UTC/Z format to match solar data
+        # Handle both "2026-04-01T01:00:00+01:00" and "2026-04-01T00:00:00Z" formats
+        try:
+            dt = datetime.fromisoformat(interval_start)
+            utc_interval = dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except (ValueError, AttributeError):
+            # Fallback if datetime.timezone not available or parse fails
+            utc_interval = interval_start
+        
+        # Get self-use data from GivEnergy API
+        self_use_kwh = solar_by_interval.get(utc_interval, 0)
+        
+        if self_use_kwh > 0:
+            non_zero_solar_count += 1
         
         # Calculate return for this half-hour interval
         results = calculate_return_for_interval(
@@ -140,7 +185,9 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
         
         all_results.append((month, results))
         logger.debug(f"Interval {interval_start}: import={import_kwh}, export={export_kwh}, "
-                    f"is_peak={results['is_peak']}, net_return={results['net return']:.4f}")
+                    f"self_use={self_use_kwh}, is_peak={results['is_peak']}, net_return={results['net return']:.4f}")
+
+    logger.info(f"Found {non_zero_solar_count} intervals with solar self-use data out of {len(import_data)} intervals")
 
     # Aggregate results by peak and off-peak
     peak_offpeak_results = aggregate_by_peak_offpeak(all_results)
