@@ -1,6 +1,4 @@
 from config.settings import (
-    IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE,
-    EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE,
     PEAK_START_HOUR, PEAK_END_HOUR
 )
 from datetime import datetime
@@ -21,19 +19,21 @@ def is_peak_hour(interval_start_str):
     hour = dt_uk.hour
     return PEAK_START_HOUR <= hour < PEAK_END_HOUR
 
-def get_rate(is_peak, rate_type):
+def get_rate(is_peak, rate_type, import_peak_rate, import_offpeak_rate, export_peak_rate, export_offpeak_rate):
     """
     Get the appropriate rate based on peak/off-peak and type (import/export).
     """
     if rate_type == "import":
-        return IMPORT_PEAK_RATE if is_peak else IMPORT_OFFPEAK_RATE
+        return import_peak_rate if is_peak else import_offpeak_rate
     elif rate_type == "export":
-        return EXPORT_PEAK_RATE if is_peak else EXPORT_OFFPEAK_RATE
+        return export_peak_rate if is_peak else export_offpeak_rate
     else:
         raise ValueError(f"Invalid rate_type: {rate_type}")
 
 def calculate_return_for_interval(import_consumption, export_consumption, 
-                                  interval_start, pv_to_home_kwh=0, grid_to_battery_kwh=0):
+                                  interval_start, pv_to_home_kwh=0, grid_to_battery_kwh=0,
+                                  import_peak_rate=None, import_offpeak_rate=None, 
+                                  export_peak_rate=None, export_offpeak_rate=None):
     """
     Calculate return for a single half-hour interval with peak/off-peak rates.
     
@@ -43,14 +43,26 @@ def calculate_return_for_interval(import_consumption, export_consumption,
         interval_start: ISO format timestamp string
         pv_to_home_kwh: kWh of PV consumed in the home during this interval
         grid_to_battery_kwh: kWh sent from grid to battery in this interval
+        import_peak_rate: Peak import rate (optional, uses settings default)
+        import_offpeak_rate: Off-peak import rate (optional, uses settings default)
+        export_peak_rate: Peak export rate (optional, uses settings default)
+        export_offpeak_rate: Off-peak export rate (optional, uses settings default)
     
     Returns:
         Dictionary with calculated values for this interval
     """
+    # Import defaults from settings if not provided
+    if import_peak_rate is None or import_offpeak_rate is None or export_peak_rate is None or export_offpeak_rate is None:
+        from config.settings import IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE, EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE
+        import_peak_rate = import_peak_rate or IMPORT_PEAK_RATE
+        import_offpeak_rate = import_offpeak_rate or IMPORT_OFFPEAK_RATE
+        export_peak_rate = export_peak_rate or EXPORT_PEAK_RATE
+        export_offpeak_rate = export_offpeak_rate or EXPORT_OFFPEAK_RATE
+    
     peak = is_peak_hour(interval_start)
     
-    import_rate = get_rate(peak, "import")
-    export_rate = get_rate(peak, "export")
+    import_rate = get_rate(peak, "import", import_peak_rate, import_offpeak_rate, export_peak_rate, export_offpeak_rate)
+    export_rate = get_rate(peak, "export", import_peak_rate, import_offpeak_rate, export_peak_rate, export_offpeak_rate)
     
     pv_to_home_savings = pv_to_home_kwh * import_rate
     export_income = export_consumption * export_rate
@@ -141,18 +153,3 @@ def aggregate_by_month(all_results):
         aggregated[month]["grid_to_battery_kwh"] += results["grid_to_battery_kwh"]
     
     return aggregated
-
-def calculate_return(import_kwh, export_kwh, pv_to_home_kwh):
-    """Legacy function for backward compatibility."""
-    # This would only work with fixed rates - kept for compatibility
-    from config.settings import IMPORT_RATE, EXPORT_RATE
-    
-    export_income = export_kwh * EXPORT_RATE
-    import_cost = import_kwh * IMPORT_RATE
-
-    return {
-        "import (kwh)": import_kwh,
-        "import cost": import_cost,
-        "export (kwh)": export_kwh,
-        "export income": export_income
-    }

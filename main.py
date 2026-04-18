@@ -66,7 +66,6 @@ def get_default_dates_from_last_row(file_path="data/solar_return.xlsx"):
         target_date_from = next_month_start.strftime("%Y-%m-%dT00:00:00Z")
         target_date_to = (next_month_end + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
         
-        logger.info(f"Auto-detected next bill cycle from last row: {target_date_from} to {target_date_to}")
         return (target_date_from, target_date_to)
     
     except Exception as e:
@@ -102,7 +101,8 @@ def extract_date_part(iso_date):
         return iso_date.split("T")[0]
     return iso_date
 
-def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:00:00Z"):
+def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:00:00Z",
+         import_peak_rate=None, import_offpeak_rate=None, export_peak_rate=None, export_offpeak_rate=None):
     logger.info("Starting solar return calculation")
     logger.info(f"Date range: {target_date_from} to {target_date_to}")
 
@@ -187,7 +187,8 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
         # Calculate return for this half-hour interval
         results = calculate_return_for_interval(
             import_kwh, export_kwh, interval_start,
-            pv_to_home_kwh, grid_to_battery_kwh
+            pv_to_home_kwh, grid_to_battery_kwh,
+            import_peak_rate, import_offpeak_rate, export_peak_rate, export_offpeak_rate
         )
         
         # Extract month from interval_start
@@ -262,6 +263,34 @@ if __name__ == "__main__":
         help="End date in YYYY-MM-DD format (e.g., 2026-02-04)"
     )
     parser.add_argument(
+        "--import-peak-rate",
+        dest="import_peak_rate",
+        type=float,
+        default=None,
+        help="Import peak rate (default: 0.2855)"
+    )
+    parser.add_argument(
+        "--import-offpeak-rate",
+        dest="import_offpeak_rate",
+        type=float,
+        default=None,
+        help="Import off-peak rate (default: 0.2141)"
+    )
+    parser.add_argument(
+        "--export-peak-rate",
+        dest="export_peak_rate",
+        type=float,
+        default=None,
+        help="Export peak rate (default: 0.3142)"
+    )
+    parser.add_argument(
+        "--export-offpeak-rate",
+        dest="export_offpeak_rate",
+        type=float,
+        default=None,
+        help="Export off-peak rate (default: 0.2357)"
+    )
+    parser.add_argument(
         "-h", "--help",
         action="store_true",
         help="Show help message"
@@ -281,11 +310,16 @@ if __name__ == "__main__":
         print("  • Exporting results to Excel with professional formatting")
         print("\nUsage:")
         print("  poetry run python main.py")
-        print("    → Interactive mode (prompts for dates)")
+        print("    → Interactive mode (prompts for dates and rates)")
         print("\n  poetry run python main.py --from 2026-01-01 --to 2026-02-03")
         print("    → Command-line mode with specific dates")
         print("    (Note: end date automatically adds 1 day, so 02-03 becomes 02-04)")
+        print("\n  poetry run python main.py --from 2026-01-01 --to 2026-02-03 \\")
+        print("    --import-offpeak-rate 0.2141 --import-peak-rate 0.2855 \\")
+        print("    --export-offpeak-rate 0.2357 --export-peak-rate 0.3142")
+        print("    → Command-line mode with custom rates")
         print("\nDate format: YYYY-MM-DD (e.g., 2026-01-01)")
+        print("Rate format: Decimal (e.g., 0.2855 for £0.2855/kWh)")
         print("="*60 + "\n")
         exit(0)
     
@@ -312,7 +346,85 @@ if __name__ == "__main__":
         print("\nThis utility calculates your solar import/export returns")
         print("with peak (16:00-19:00) and off-peak rate calculations.\n")
         print("Results are saved to Excel with professional formatting.")
-        print("-"*60)
+        print("You will be prompted for rates and dates if not provided.")
+        
+        # Import default rates from settings
+        from config.settings import IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE, EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE
+        
+        # Prompt for rate parameters first
+        print("\nRate Configuration (press Enter to use defaults):")
+        
+        import_offpeak_input = input(f"Enter import off-peak rate (default: {IMPORT_OFFPEAK_RATE}): ").strip()
+        if import_offpeak_input:
+            try:
+                args.import_offpeak_rate = float(import_offpeak_input)
+            except ValueError:
+                print(f"Error: Invalid import off-peak rate '{import_offpeak_input}', using default {IMPORT_OFFPEAK_RATE}")
+                args.import_offpeak_rate = IMPORT_OFFPEAK_RATE
+        else:
+            args.import_offpeak_rate = IMPORT_OFFPEAK_RATE
+        
+        import_peak_input = input(f"Enter import peak rate (default: {IMPORT_PEAK_RATE}): ").strip()
+        if import_peak_input:
+            try:
+                args.import_peak_rate = float(import_peak_input)
+            except ValueError:
+                print(f"Error: Invalid import peak rate '{import_peak_input}', using default {IMPORT_PEAK_RATE}")
+                args.import_peak_rate = IMPORT_PEAK_RATE
+        else:
+            args.import_peak_rate = IMPORT_PEAK_RATE
+        
+        export_offpeak_input = input(f"Enter export off-peak rate (default: {EXPORT_OFFPEAK_RATE}): ").strip()
+        if export_offpeak_input:
+            try:
+                args.export_offpeak_rate = float(export_offpeak_input)
+            except ValueError:
+                print(f"Error: Invalid export off-peak rate '{export_offpeak_input}', using default {EXPORT_OFFPEAK_RATE}")
+                args.export_offpeak_rate = EXPORT_OFFPEAK_RATE
+        else:
+            args.export_offpeak_rate = EXPORT_OFFPEAK_RATE
+        
+        export_peak_input = input(f"Enter export peak rate (default: {EXPORT_PEAK_RATE}): ").strip()
+        if export_peak_input:
+            try:
+                args.export_peak_rate = float(export_peak_input)
+            except ValueError:
+                print(f"Error: Invalid export peak rate '{export_peak_input}', using default {EXPORT_PEAK_RATE}")
+                args.export_peak_rate = EXPORT_PEAK_RATE
+        else:
+            args.export_peak_rate = EXPORT_PEAK_RATE
+        
+        # Save the entered rates to config.yaml file for future use
+        try:
+            import yaml
+            config_file_path = "config.yaml"
+            
+            # Read existing config if it exists
+            config_data = {}
+            if os.path.exists(config_file_path):
+                with open(config_file_path, 'r') as f:
+                    config_data = yaml.safe_load(f) or {}
+            
+            # Update rates section
+            config_data['rates'] = {
+                'import_peak_rate': args.import_peak_rate,
+                'import_offpeak_rate': args.import_offpeak_rate,
+                'export_peak_rate': args.export_peak_rate,
+                'export_offpeak_rate': args.export_offpeak_rate
+            }
+            
+            # Write back to config.yaml
+            with open(config_file_path, 'w') as f:
+                yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+            
+            print(f"✓ Rates saved to {config_file_path} for future use")
+            
+        except ImportError:
+            print("Warning: PyYAML not available, rates not saved")
+        except Exception as e:
+            print(f"Warning: Could not save rates to config.yaml: {e}")
+        
+        print("\nDate Configuration:")
         
         # Try to get defaults from last row in Excel file
         auto_dates = get_default_dates_from_last_row()
@@ -358,4 +470,5 @@ if __name__ == "__main__":
         
         print("="*60 + "\n")
     
-    main(args.target_date_from, args.target_date_to)
+    main(args.target_date_from, args.target_date_to, 
+         args.import_peak_rate, args.import_offpeak_rate, args.export_peak_rate, args.export_offpeak_rate)
