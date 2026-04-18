@@ -3,13 +3,13 @@ from datetime import datetime
 from config.settings import BASELINE_RATE
 from openpyxl.utils import get_column_letter
 
-def update_excel(data, file_path="data/solar_return.xlsx", month=None, sheet_name="Sheet1"):
-    if month is None:
-        month = datetime.now().strftime("%Y-%m")
+def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, sheet_name="Sheet1"):
+    if date_range is None:
+        date_range = datetime.now().strftime("%Y-%m")
     
     # Format data before writing to Excel
     formatted_data = {
-        "month": month,
+        "date_range": date_range,
     }
     
     for key, value in data.items():
@@ -48,14 +48,14 @@ def update_excel(data, file_path="data/solar_return.xlsx", month=None, sheet_nam
         header_positions = {}
         for col_idx, cell in enumerate(worksheet[1], 1):
             header_positions[cell.value] = col_idx
-            if cell.value == "self use savings":
+            if cell.value == "grid_to_battery_kwh":
                 actual_cost_col = col_idx + 1  # Insert after this column
 
         # Insert Actual_Cost column if we found the right position
         if actual_cost_col:
             worksheet.insert_cols(actual_cost_col)
             # Add header
-            worksheet.cell(row=1, column=actual_cost_col).value = "Actual_Cost"
+            worksheet.cell(row=1, column=actual_cost_col).value = "actual_cost"
             worksheet.cell(row=1, column=actual_cost_col).fill = orange_fill
             worksheet.cell(row=1, column=actual_cost_col).font = header_font
             
@@ -71,17 +71,17 @@ def update_excel(data, file_path="data/solar_return.xlsx", month=None, sheet_nam
 
             # Insert No_Solar_Cost column after Actual_Cost
             worksheet.insert_cols(no_solar_cost_col)
-            worksheet.cell(row=1, column=no_solar_cost_col).value = "No_Solar_Cost"
+            worksheet.cell(row=1, column=no_solar_cost_col).value = "no_solar_cost"
             worksheet.cell(row=1, column=no_solar_cost_col).fill = orange_fill
             worksheet.cell(row=1, column=no_solar_cost_col).font = header_font
 
             # Build formula columns by header names so the formula stays aligned
             positions = {worksheet.cell(1, idx).value: idx for idx in range(1, worksheet.max_column + 1)}
-            import_col = positions.get("import (kwh)")
-            pv_col = positions.get("PV_to_home_Kwh")
-            battery_col = positions.get("Grid_to_Battery_kwh") or positions.get("Grid_to_battery_kwh")
-            actual_cost_col = positions.get("Actual_Cost")
-            no_solar_cost_col = positions.get("No_Solar_Cost")
+            import_col = positions.get("import_kwh")
+            pv_col = positions.get("pv_to_home_kwh")
+            battery_col = positions.get("grid_to_battery_kwh")
+            actual_cost_col = positions.get("actual_cost")
+            no_solar_cost_col = positions.get("no_solar_cost")
 
             if import_col and pv_col and battery_col and no_solar_cost_col:
                 import_col_letter = get_column_letter(import_col)
@@ -95,7 +95,7 @@ def update_excel(data, file_path="data/solar_return.xlsx", month=None, sheet_nam
             if actual_cost_col and no_solar_cost_col:
                 roi_col = no_solar_cost_col + 1
                 worksheet.insert_cols(roi_col)
-                worksheet.cell(row=1, column=roi_col).value = "ROI"
+                worksheet.cell(row=1, column=roi_col).value = "net_returns"
                 worksheet.cell(row=1, column=roi_col).fill = orange_fill
                 worksheet.cell(row=1, column=roi_col).font = header_font
                 
@@ -121,7 +121,7 @@ def update_excel(data, file_path="data/solar_return.xlsx", month=None, sheet_nam
                     cell.number_format = '0.0'
                 elif col_header and ("cost" in col_header.lower() or "income" in col_header.lower() 
                                      or "savings" in col_header.lower() or "return" in col_header.lower() 
-                                     or col_header == "ROI"):
+                                     or col_header == "net_returns"):
                     # Format as British Pounds with 2 decimal places
                     cell.number_format = '£#,##0.00'
         

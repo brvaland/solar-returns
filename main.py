@@ -36,7 +36,7 @@ def get_default_dates_from_last_row(file_path="data/solar_return.xlsx"):
         
         # Get the last row
         last_row = df.iloc[-1]
-        month_value = last_row.get("month")
+        month_value = last_row.get("date_range") or last_row.get("month")
         
         if not month_value:
             return None
@@ -135,8 +135,8 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
             pv_to_home_kwh = float(item["data"].get("0", 0))
             grid_to_battery_kwh = float(item["data"].get("4", 0))
             solar_by_interval[octopus_time] = {
-                "PV_to_home_Kwh": pv_to_home_kwh,
-                "Grid_to_battery_kwh": grid_to_battery_kwh
+                "pv_to_home_kwh": pv_to_home_kwh,
+                "grid_to_battery_kwh": grid_to_battery_kwh
             }
         except (ValueError, KeyError) as e:
             logger.debug(f"Could not parse solar data item: {e}")
@@ -176,10 +176,10 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
         # Get PV to home and grid-to-battery data from GivEnergy API
         interval_solar_data = solar_by_interval.get(
             utc_interval,
-            {"PV_to_home_Kwh": 0, "Grid_to_battery_kwh": 0}
+            {"pv_to_home_kwh": 0, "grid_to_battery_kwh": 0}
         )
-        pv_to_home_kwh = interval_solar_data["PV_to_home_Kwh"]
-        grid_to_battery_kwh = interval_solar_data["Grid_to_battery_kwh"]
+        pv_to_home_kwh = interval_solar_data["pv_to_home_kwh"]
+        grid_to_battery_kwh = interval_solar_data["grid_to_battery_kwh"]
         
         if pv_to_home_kwh > 0 or grid_to_battery_kwh > 0:
             non_zero_solar_count += 1
@@ -195,8 +195,8 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
         
         all_results.append((month, results))
         logger.debug(f"Interval {interval_start}: import={import_kwh}, export={export_kwh}, "
-                    f"PV_to_home_Kwh={pv_to_home_kwh}, Grid_to_battery_kwh={grid_to_battery_kwh}, "
-                    f"is_peak={results['is_peak']}, net_return={results['net return']:.4f}")
+                    f"pv_to_home_kwh={pv_to_home_kwh}, grid_to_battery_kwh={grid_to_battery_kwh}, "
+                    f"is_peak={results['is_peak']}")
 
     logger.info(f"Found {non_zero_solar_count} intervals with PV or grid-to-battery data out of {len(import_data)} intervals")
 
@@ -205,14 +205,12 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
     
     # Sum peak and off-peak into a single row
     total_results = {
-        "import (kwh)": 0,
-        "import cost": 0,
-        "export (kwh)": 0,
-        "export income": 0,
-        "PV_to_home_Kwh": 0,
-        "Grid_to_battery_kwh": 0,
-        "self use savings": 0,
-        "net return": 0,
+        "import_kwh": 0,
+        "import_cost": 0,
+        "export_kwh": 0,
+        "export_income": 0,
+        "pv_to_home_kwh": 0,
+        "grid_to_battery_kwh": 0,
         "intervals": 0
     }
     
@@ -241,9 +239,8 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
     
     # Update Excel with aggregated results
     logger.info(f"Updating Excel with aggregated data for {date_range}")
-    update_excel(total_results, month=date_range, sheet_name=year)
-    logger.info(f"Added row for {date_range}: {intervals_count} intervals, "
-                f"net return = {total_results['net return']:.2f}")
+    update_excel(total_results, date_range=date_range, sheet_name=year)
+    logger.info(f"Added row for {date_range}: {intervals_count} intervals")
 
     logger.info(f"✅ Solar return updated successfully")
 

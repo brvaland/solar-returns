@@ -56,18 +56,14 @@ def calculate_return_for_interval(import_consumption, export_consumption,
     export_income = export_consumption * export_rate
     import_cost = import_consumption * import_rate
     
-    net = pv_to_home_savings + export_income - import_cost
-    
     return {
-        "import (kwh)": import_consumption,
-        "import cost": import_cost,
-        "export (kwh)": export_consumption,
-        "export income": export_income,
-        "PV_to_home_Kwh": pv_to_home_kwh,
-        "Grid_to_battery_kwh": grid_to_battery_kwh,
-        "self use savings": pv_to_home_savings,
-        "is_peak": peak,
-        "net return": net
+        "import_kwh": import_consumption,
+        "import_cost": import_cost,
+        "export_kwh": export_consumption,
+        "export_income": export_income,
+        "pv_to_home_kwh": pv_to_home_kwh,
+        "grid_to_battery_kwh": grid_to_battery_kwh,
+        "is_peak": peak
     }
 
 def aggregate_by_peak_offpeak(all_results):
@@ -82,25 +78,21 @@ def aggregate_by_peak_offpeak(all_results):
     """
     aggregated = {
         "peak": {
-            "import (kwh)": 0,
-            "import cost": 0,
-            "export (kwh)": 0,
-            "export income": 0,
-            "PV_to_home_Kwh": 0,
-            "Grid_to_battery_kwh": 0,
-            "self use savings": 0,
-            "net return": 0,
+            "import_kwh": 0,
+            "import_cost": 0,
+            "export_kwh": 0,
+            "export_income": 0,
+            "pv_to_home_kwh": 0,
+            "grid_to_battery_kwh": 0,
             "intervals": 0
         },
         "off-peak": {
-            "import (kwh)": 0,
-            "import cost": 0,
-            "export (kwh)": 0,
-            "export income": 0,
-            "PV_to_home_Kwh": 0,
-            "Grid_to_battery_kwh": 0,
-            "self use savings": 0,
-            "net return": 0,
+            "import_kwh": 0,
+            "import_cost": 0,
+            "export_kwh": 0,
+            "export_income": 0,
+            "pv_to_home_kwh": 0,
+            "grid_to_battery_kwh": 0,
             "intervals": 0
         }
     }
@@ -108,14 +100,12 @@ def aggregate_by_peak_offpeak(all_results):
     for _, results in all_results:
         period = "peak" if results["is_peak"] else "off-peak"
         
-        aggregated[period]["import (kwh)"] += results["import (kwh)"]
-        aggregated[period]["import cost"] += results["import cost"]
-        aggregated[period]["export (kwh)"] += results["export (kwh)"]
-        aggregated[period]["export income"] += results["export income"]
-        aggregated[period]["PV_to_home_Kwh"] += results["PV_to_home_Kwh"]
-        aggregated[period]["Grid_to_battery_kwh"] += results["Grid_to_battery_kwh"]
-        aggregated[period]["self use savings"] += results["self use savings"]
-        aggregated[period]["net return"] += results["net return"]
+        aggregated[period]["import_kwh"] += results["import_kwh"]
+        aggregated[period]["import_cost"] += results["import_cost"]
+        aggregated[period]["export_kwh"] += results["export_kwh"]
+        aggregated[period]["export_income"] += results["export_income"]
+        aggregated[period]["pv_to_home_kwh"] += results["pv_to_home_kwh"]
+        aggregated[period]["grid_to_battery_kwh"] += results["grid_to_battery_kwh"]
         aggregated[period]["intervals"] += 1
     
     return aggregated
@@ -135,24 +125,20 @@ def aggregate_by_month(all_results):
     for month, results in all_results:
         if month not in aggregated:
             aggregated[month] = {
-                "import (kwh)": 0,
-                "import cost": 0,
-                "export (kwh)": 0,
-                "export income": 0,
-                "PV_to_home_Kwh": 0,
-                "Grid_to_battery_kwh": 0,
-                "self use savings": 0,
-                "net return": 0
+                "import_kwh": 0,
+                "import_cost": 0,
+                "export_kwh": 0,
+                "export_income": 0,
+                "pv_to_home_kwh": 0,
+                "grid_to_battery_kwh": 0
             }
         
-        aggregated[month]["import (kwh)"] += results["import (kwh)"]
-        aggregated[month]["import cost"] += results["import cost"]
-        aggregated[month]["export (kwh)"] += results["export (kwh)"]
-        aggregated[month]["export income"] += results["export income"]
-        aggregated[month]["PV_to_home_Kwh"] += results["PV_to_home_Kwh"]
-        aggregated[month]["Grid_to_battery_kwh"] += results["Grid_to_battery_kwh"]
-        aggregated[month]["self use savings"] += results["self use savings"]
-        aggregated[month]["net return"] += results["net return"]
+        aggregated[month]["import_kwh"] += results["import_kwh"]
+        aggregated[month]["import_cost"] += results["import_cost"]
+        aggregated[month]["export_kwh"] += results["export_kwh"]
+        aggregated[month]["export_income"] += results["export_income"]
+        aggregated[month]["pv_to_home_kwh"] += results["pv_to_home_kwh"]
+        aggregated[month]["grid_to_battery_kwh"] += results["grid_to_battery_kwh"]
     
     return aggregated
 
@@ -161,16 +147,12 @@ def calculate_return(import_kwh, export_kwh, pv_to_home_kwh):
     # This would only work with fixed rates - kept for compatibility
     from config.settings import IMPORT_RATE, EXPORT_RATE
     
-    self_use_savings = pv_to_home_kwh * IMPORT_RATE
     export_income = export_kwh * EXPORT_RATE
     import_cost = import_kwh * IMPORT_RATE
-
-    net = self_use_savings + export_income - import_cost
 
     return {
         "import (kwh)": import_kwh,
         "import cost": import_cost,
         "export (kwh)": export_kwh,
-        "export income": export_income,
-        "net return": net
+        "export income": export_income
     }
