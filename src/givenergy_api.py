@@ -37,7 +37,7 @@ def get_solar_generation(target_date_from, target_date_to):
             "start_time": start_time,
             "end_time": end_time,
             "grouping": 0,
-            "types": [0]
+            "types": [0, 4]
         }
         
         try:

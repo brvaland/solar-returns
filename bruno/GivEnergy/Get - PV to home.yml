@@ -1,0 +1,55 @@
+info:
+  name: Get - PV to home
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: https://api.givenergy.cloud/v1/inverter/ED2253G277/energy-flows
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "start_time": "2025-09-01",
+        "end_time": "2025-09-02",
+        "grouping": 0,
+        "types": [0, 4]
+      }
+  auth:
+    type: bearer
+    token: "{{GIVENERGY_API_KEY}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  https://givenergy.cloud/docs/api/v1#energy-flow-data-POSTinverter--inverter_serial_number--energy-flows
+
+    "grouping": 0,
+    "types": [0]
+    
+  Grouping ID	Name	Description
+  0	Half Hourly	Groups the data into 30-minute intervals
+  1	Daily	Groups the data into 24-hour intervals
+  2	Monthly	Groups the data into monthly intervals
+  3	Yearly	Groups the data into yearly intervals
+  4	Total	Groups the data into a single interval, spanning from the start time to the end time
+
+
+  Type IDs
+
+  0	- PV to Home	
+  1	- PV to Battery
+  2 - PV to Grid
+  3	- Grid to Home
+  4 -	Grid to Battery
+  5 -	Battery to Home
+  6 -	Battery to Grid

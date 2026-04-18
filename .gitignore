@@ -50,3 +50,4 @@ env/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+data/solar_return copy.xlsx
