@@ -102,7 +102,7 @@ def extract_date_part(iso_date):
     return iso_date
 
 def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:00:00Z",
-         import_peak_rate=None, import_offpeak_rate=None, export_peak_rate=None, export_offpeak_rate=None):
+         import_peak_rate=None, import_offpeak_rate=None, export_peak_rate=None, export_offpeak_rate=None, baseline_rate=None):
     logger.info("Starting solar return calculation")
     logger.info(f"Date range: {target_date_from} to {target_date_to}")
 
@@ -240,7 +240,7 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
     
     # Update Excel with aggregated results
     logger.info(f"Updating Excel with aggregated data for {date_range}")
-    update_excel(total_results, date_range=date_range, sheet_name=year)
+    update_excel(total_results, date_range=date_range, sheet_name=year, baseline_rate=baseline_rate)
     logger.info(f"Added row for {date_range}: {intervals_count} intervals")
 
     logger.info(f"✅ Solar return updated successfully")
@@ -291,6 +291,13 @@ if __name__ == "__main__":
         help="Export off-peak rate (default: 0.2357)"
     )
     parser.add_argument(
+        "--baseline-rate",
+        dest="baseline_rate",
+        type=float,
+        default=None,
+        help="Baseline rate (default: 0.2498)"
+    )
+    parser.add_argument(
         "-h", "--help",
         action="store_true",
         help="Show help message"
@@ -316,7 +323,8 @@ if __name__ == "__main__":
         print("    (Note: end date automatically adds 1 day, so 02-03 becomes 02-04)")
         print("\n  poetry run python main.py --from 2026-01-01 --to 2026-02-03 \\")
         print("    --import-offpeak-rate 0.2141 --import-peak-rate 0.2855 \\")
-        print("    --export-offpeak-rate 0.2357 --export-peak-rate 0.3142")
+        print("    --export-offpeak-rate 0.2357 --export-peak-rate 0.3142 \\")
+        print("    --baseline-rate 0.2498")
         print("    → Command-line mode with custom rates")
         print("\nDate format: YYYY-MM-DD (e.g., 2026-01-01)")
         print("Rate format: Decimal (e.g., 0.2855 for £0.2855/kWh)")
@@ -349,7 +357,7 @@ if __name__ == "__main__":
         print("You will be prompted for rates and dates if not provided.")
         
         # Import default rates from settings
-        from config.settings import IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE, EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE
+        from config.settings import IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE, EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE, BASELINE_RATE
         
         # Prompt for rate parameters first
         print("\nRate Configuration (press Enter to use defaults):")
@@ -394,6 +402,16 @@ if __name__ == "__main__":
         else:
             args.export_peak_rate = EXPORT_PEAK_RATE
         
+        baseline_input = input(f"Enter baseline rate (default: {BASELINE_RATE}): ").strip()
+        if baseline_input:
+            try:
+                args.baseline_rate = float(baseline_input)
+            except ValueError:
+                print(f"Error: Invalid baseline rate '{baseline_input}', using default {BASELINE_RATE}")
+                args.baseline_rate = BASELINE_RATE
+        else:
+            args.baseline_rate = BASELINE_RATE
+        
         # Save the entered rates to config.yaml file for future use
         try:
             import yaml
@@ -410,7 +428,8 @@ if __name__ == "__main__":
                 'import_peak_rate': args.import_peak_rate,
                 'import_offpeak_rate': args.import_offpeak_rate,
                 'export_peak_rate': args.export_peak_rate,
-                'export_offpeak_rate': args.export_offpeak_rate
+                'export_offpeak_rate': args.export_offpeak_rate,
+                'baseline_rate': args.baseline_rate
             }
             
             # Write back to config.yaml
@@ -471,4 +490,4 @@ if __name__ == "__main__":
         print("="*60 + "\n")
     
     main(args.target_date_from, args.target_date_to, 
-         args.import_peak_rate, args.import_offpeak_rate, args.export_peak_rate, args.export_offpeak_rate)
+         args.import_peak_rate, args.import_offpeak_rate, args.export_peak_rate, args.export_offpeak_rate, args.baseline_rate)
