@@ -1,6 +1,6 @@
 rates:
-  import_peak_rate: 0.282
-  import_offpeak_rate: 0.2115
-  export_peak_rate: 0.282
-  export_offpeak_rate: 0.2115
-  baseline_rate: 0.2467
+  import_peak_rate: 0.2997
+  import_offpeak_rate: 0.2248
+  export_peak_rate: 0.2997
+  export_offpeak_rate: 0.2248
+  baseline_rate: 0.2648

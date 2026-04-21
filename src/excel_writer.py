@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 from datetime import datetime
 from openpyxl.utils import get_column_letter
 
@@ -28,7 +29,8 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
     df = pd.DataFrame([formatted_data])
 
     try:
-        existing = pd.read_excel(file_path)
+        # Try to read existing data from the SAME sheet
+        existing = pd.read_excel(file_path, sheet_name=sheet_name)
         # Remove duplicate columns (actual_cost, no_solar_cost, net_returns) from existing data
         # Keep only the first occurrence of each
         cols_to_check = ['actual_cost', 'no_solar_cost', 'net_returns']
@@ -40,11 +42,15 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
                 existing = existing.drop(columns=cols_to_drop[1:])
         
         df = pd.concat([existing, df], ignore_index=True)
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
+        # File doesn't exist or sheet doesn't exist - this is okay, we'll create it
         pass
 
-    # Write to Excel with formatting
-    with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+    # Write to Excel with formatting using append mode to preserve other sheets
+    # Determine mode: 'w' for new file, 'a' for existing file
+    write_mode = 'w' if not os.path.exists(file_path) else 'a'
+    
+    with pd.ExcelWriter(file_path, engine='openpyxl', mode=write_mode, if_sheet_exists='replace') as writer:
         df.to_excel(writer, index=False, sheet_name=sheet_name)
         
         # Apply formatting
