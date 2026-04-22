@@ -49,8 +49,16 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
     # Write to Excel with formatting using append mode to preserve other sheets
     # Determine mode: 'w' for new file, 'a' for existing file
     write_mode = 'w' if not os.path.exists(file_path) else 'a'
+
+    writer_kwargs = {
+        'engine': 'openpyxl',
+        'mode': write_mode
+    }
+
+    if write_mode == 'a':
+        writer_kwargs['if_sheet_exists'] = 'replace'  # Replace the sheet if it already exists
     
-    with pd.ExcelWriter(file_path, engine='openpyxl', mode=write_mode, if_sheet_exists='replace') as writer:
+    with pd.ExcelWriter(file_path, **writer_kwargs) as writer:
         df.to_excel(writer, index=False, sheet_name=sheet_name)
         
         # Apply formatting
