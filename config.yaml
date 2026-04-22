@@ -1,9 +1,9 @@
 TARIFF: OCTOPUS_FLUX
 rates:
-  import_offpeak_rate: 0.1635
-  import_standard_rate: 0.2724
-  import_peak_rate: 0.3814
+  import_offpeak_rate: 0.1498
+  import_standard_rate: 0.2498
+  import_peak_rate: 0.3497
   export_offpeak_rate: 0.0474
-  export_standard_rate: 0.1008
-  export_peak_rate: 0.29
-baseline_rate: 0.2648
+  export_standard_rate: 0.1332
+  export_peak_rate: 0.266
+baseline_rate: 0.2572
