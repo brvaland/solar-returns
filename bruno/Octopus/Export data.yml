@@ -5,19 +5,16 @@ info:
 
 http:
   method: GET
-  url: https://api.octopus.energy/v1/electricity-meter-points/{{EXPORT_MPAN}}/meters/{{METER_SERIAL}}/consumption?period_from=2026-03-04T00:00:00Z&period_to=2026-04-01T00:00:00Z&order_by=period&group_by=month
+  url: https://api.octopus.energy/v1/electricity-meter-points/{{EXPORT_MPAN}}/meters/{{METER_SERIAL}}/consumption?period_from=2024-12-01T00:00:00Z&period_to=2024-12-03T00:00:00Z&order_by=period
   params:
     - name: period_from
-      value: 2026-03-04T00:00:00Z
+      value: 2024-12-01T00:00:00Z
       type: query
     - name: period_to
-      value: 2026-04-01T00:00:00Z
+      value: 2024-12-03T00:00:00Z
       type: query
     - name: order_by
       value: period
-      type: query
-    - name: group_by
-      value: month
       type: query
   auth:
     type: basic

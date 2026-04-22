@@ -15,7 +15,8 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
     # Format data before writing to Excel
     formatted_data = {
         "date_range": date_range,
-        "tariff": ACTIVE_TARIFF_NAME
+        "tariff": ACTIVE_TARIFF_NAME,
+        "baseline_rate": baseline_rate
     }
     
     for key, value in data.items():
@@ -120,17 +121,20 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
                 import_col = positions.get("import_kwh")
                 pv_col = positions.get("pv_to_home_kwh")
                 battery_col = positions.get("grid_to_battery_kwh")
+                baseline_rate_col = positions.get("baseline_rate")
                 
                 if import_col and pv_col and battery_col:
                     import_col_letter = get_column_letter(import_col)
                     pv_col_letter = get_column_letter(pv_col)
                     battery_col_letter = get_column_letter(battery_col)
+                    baseline_rate_col_letter = get_column_letter(baseline_rate_col)
+                    
                     for row in range(2, worksheet.max_row + 1):
                                                 
                         if ACTIVE_TARIFF_NAME == 'OCTOPUS_INTELLI_FLUX':
-                            formula = f"=(({import_col_letter}{row}+{pv_col_letter}{row})-{battery_col_letter}{row})*{baseline_rate}"
+                            formula = f"=(({import_col_letter}{row}+{pv_col_letter}{row})-{battery_col_letter}{row})*{baseline_rate_col_letter}{row}"
                         else: 
-                            formula = f"=({import_col_letter}{row}+{pv_col_letter}{row})*{baseline_rate}"
+                            formula = f"=({import_col_letter}{row}+{pv_col_letter}{row})*{baseline_rate_col_letter}{row}"
 
                         worksheet.cell(row=row, column=no_solar_cost_col).value = formula
                         worksheet.cell(row=row, column=no_solar_cost_col).number_format = '£#,##0.00'
@@ -169,6 +173,7 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
         export_income_col = header_positions.get("export_income")
         pv_col = header_positions.get("pv_to_home_kwh")
         battery_col = header_positions.get("grid_to_battery_kwh")
+        baseline_rate_col = header_positions.get("baseline_rate")
         
         # Set formulas for all data rows
         for row in range(2, worksheet.max_row + 1):
@@ -182,7 +187,21 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
                 cell.value = formula
                 cell.number_format = '£#,##0.00'
             
-            # DO NOT SET formula for no_solar_cost as baseline_rate may change and we want to preserve historical values
+            # Set no_solar_cost formula: ((import + pv_to_home - battery) * baseline_rate)
+            if no_solar_cost_col and import_col and pv_col and battery_col:
+                cell = worksheet.cell(row=row, column=no_solar_cost_col)
+                import_col_letter = get_column_letter(import_col)
+                pv_col_letter = get_column_letter(pv_col)
+                battery_col_letter = get_column_letter(battery_col)
+                baseline_rate_col_letter = get_column_letter(baseline_rate_col)
+
+                if ACTIVE_TARIFF_NAME == 'OCTOPUS_INTELLI_FLUX':
+                    formula = f"=(({import_col_letter}{row}+{pv_col_letter}{row})-{battery_col_letter}{row})*{baseline_rate_col_letter}{row}"
+                else: 
+                    formula = f"=({import_col_letter}{row}+{pv_col_letter}{row})*{baseline_rate_col_letter}{row}"
+
+                cell.value = formula
+                cell.number_format = '£#,##0.00'
 
             # Set net_returns formula: no_solar_cost - actual_cost
             if net_returns_col and no_solar_cost_col and actual_cost_col:
