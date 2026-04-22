@@ -159,35 +159,22 @@ def prompt_for_rates(selected_tariff_name, tariff_def):
         'standard': {'import': IMPORT_STANDARD_RATE, 'export': EXPORT_STANDARD_RATE},
         'offpeak': {'import': IMPORT_OFFPEAK_RATE, 'export': EXPORT_OFFPEAK_RATE}
     }
-    
-    # Prompt for each rate period in the tariff
-    for period in rate_periods:
-        print(f"\n{period.upper()} RATE:")
-        
-        # Import rate
-        import_default = rate_defaults[period]['import']
-        import_input = input(f"  Import {period} rate (default: {import_default}): ").strip()
-        if import_input:
-            try:
-                rates[period]['import'] = float(import_input)
-            except ValueError:
-                print(f"    Error: Invalid rate, using default {import_default}")
-                rates[period]['import'] = import_default
-        else:
-            rates[period]['import'] = import_default
-        
-        # Export rate
-        export_default = rate_defaults[period]['export']
-        export_input = input(f"  Export {period} rate (default: {export_default}): ").strip()
-        if export_input:
-            try:
-                rates[period]['export'] = float(export_input)
-            except ValueError:
-                print(f"    Error: Invalid rate, using default {export_default}")
-                rates[period]['export'] = export_default
-        else:
-            rates[period]['export'] = export_default
-    
+
+    bill_rates = ["import", "export"]
+
+    for type in bill_rates:
+        print(f"\n{type.upper()} RATES:")
+        for period in rate_periods:
+            default_rate = rate_defaults[period][type]
+            input_rate = input(f"  {period} rate (default: {default_rate}): ").strip()
+            if input_rate:
+                try:
+                    rates[period][type] = float(input_rate)
+                except ValueError:
+                    print(f"    Error: Invalid rate, using default {default_rate}")
+                    rates[period][type] = default_rate
+            else:
+                rates[period][type] = default_rate    
     print()
     return rates
 
@@ -488,11 +475,14 @@ if __name__ == "__main__":
             if 'rates' not in config_data:
                 config_data['rates'] = {}
             
-            # Add all rate periods (import and export)
+            # Add all rate periods for import 
             for period in selected_tariff_def['rate_periods']:
                 config_data['rates'][f'import_{period}_rate'] = rates_dict[period]['import']
+
+            # Add all rate periods for export
+            for period in selected_tariff_def['rate_periods']:
                 config_data['rates'][f'export_{period}_rate'] = rates_dict[period]['export']
-            
+
             # Preserve baseline rate at top level
             if args.baseline_rate is not None:
                 config_data['baseline_rate'] = args.baseline_rate
