@@ -78,9 +78,8 @@ def get_rate(rate_period, rate_type, import_peak_rate, import_offpeak_rate, expo
 
 def calculate_return_for_interval(import_consumption, export_consumption, 
                                   interval_start, pv_to_home_kwh=0, grid_to_battery_kwh=0,
-                                  import_peak_rate=None, import_offpeak_rate=None, 
-                                  export_peak_rate=None, export_offpeak_rate=None,
-                                  import_standard_rate=None, export_standard_rate=None):
+                                  import_peak_rate=None, import_offpeak_rate=None, import_standard_rate=None,
+                                  export_peak_rate=None, export_offpeak_rate=None, export_standard_rate=None):
     """
     Calculate return for a single half-hour interval with peak/off-peak/standard rates.
     
@@ -101,7 +100,7 @@ def calculate_return_for_interval(import_consumption, export_consumption,
         Dictionary with calculated values for this interval
     """
     # Import defaults from settings if not provided
-    if import_peak_rate is None or import_offpeak_rate is None or export_peak_rate is None or export_offpeak_rate is None:
+    if import_peak_rate is None or import_offpeak_rate is None or export_peak_rate is None or export_offpeak_rate is None or import_standard_rate is None or export_standard_rate is None:
         from config.settings import IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE, EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE
         from config.settings import IMPORT_STANDARD_RATE, EXPORT_STANDARD_RATE
         import_peak_rate = import_peak_rate or IMPORT_PEAK_RATE
@@ -118,7 +117,6 @@ def calculate_return_for_interval(import_consumption, export_consumption,
     export_rate = get_rate(period, "export", import_peak_rate, import_offpeak_rate, 
                           export_peak_rate, export_offpeak_rate, import_standard_rate, export_standard_rate)
     
-    pv_to_home_savings = pv_to_home_kwh * import_rate
     export_income = export_consumption * export_rate
     import_cost = import_consumption * import_rate
     
