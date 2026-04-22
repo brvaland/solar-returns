@@ -2,6 +2,7 @@ import pandas as pd
 import os
 from datetime import datetime
 from openpyxl.utils import get_column_letter
+from config.settings import ( ACTIVE_TARIFF_NAME )
 
 def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, sheet_name="Sheet1", baseline_rate=None):
     # Use provided baseline_rate or import default from settings
@@ -14,6 +15,7 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
     # Format data before writing to Excel
     formatted_data = {
         "date_range": date_range,
+        "tariff": ACTIVE_TARIFF_NAME
     }
     
     for key, value in data.items():
@@ -82,6 +84,9 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
         
         if grid_to_battery_col and not has_actual_cost:
             # Insert Actual_Cost column
+            import_cost_col = header_positions.get("import_cost")
+            export_income_col = header_positions.get("export_income")
+
             actual_cost_col = grid_to_battery_col + 1
             worksheet.insert_cols(actual_cost_col)
             worksheet.cell(row=1, column=actual_cost_col).value = "actual_cost"
@@ -89,8 +94,11 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
             worksheet.cell(row=1, column=actual_cost_col).font = header_font
             
             # Add formulas for data rows (import cost - export income)
-            for row in range(2, worksheet.max_row + 1):
-                formula = f"=C{row}-E{row}"
+            for row in range(2, worksheet.max_row + 1):                
+                import_cost_col_letter = get_column_letter(import_cost_col)
+                export_income_col_letter = get_column_letter(export_income_col)
+                formula = f"={import_cost_col_letter}{row}-{export_income_col_letter}{row}"
+                
                 worksheet.cell(row=row, column=actual_cost_col).value = formula
                 worksheet.cell(row=row, column=actual_cost_col).number_format = '£#,##0.00'
             
@@ -118,7 +126,12 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
                     pv_col_letter = get_column_letter(pv_col)
                     battery_col_letter = get_column_letter(battery_col)
                     for row in range(2, worksheet.max_row + 1):
-                        formula = f"=(({import_col_letter}{row}+{pv_col_letter}{row})-{battery_col_letter}{row})*{baseline_rate}"
+                                                
+                        if ACTIVE_TARIFF_NAME == 'OCTOPUS_INTELLI_FLUX':
+                            formula = f"=(({import_col_letter}{row}+{pv_col_letter}{row})-{battery_col_letter}{row})*{baseline_rate}"
+                        else: 
+                            formula = f"=({import_col_letter}{row}+{pv_col_letter}{row})*{baseline_rate}"
+
                         worksheet.cell(row=row, column=no_solar_cost_col).value = formula
                         worksheet.cell(row=row, column=no_solar_cost_col).number_format = '£#,##0.00'
                 
@@ -152,6 +165,7 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
         no_solar_cost_col = header_positions.get("no_solar_cost")
         net_returns_col = header_positions.get("net_returns")
         import_col = header_positions.get("import_kwh")
+        import_cost_col = header_positions.get("import_cost")
         export_income_col = header_positions.get("export_income")
         pv_col = header_positions.get("pv_to_home_kwh")
         battery_col = header_positions.get("grid_to_battery_kwh")
@@ -161,20 +175,15 @@ def update_excel(data, file_path="data/solar_return.xlsx", date_range=None, shee
             # Set actual_cost formula: import_cost - export_income
             if actual_cost_col:
                 cell = worksheet.cell(row=row, column=actual_cost_col)
-                formula = f"=C{row}-E{row}"
+                #formula = f"=C{row}-E{row}"
+                import_cost_col_letter = get_column_letter(import_cost_col)
+                export_income_col_letter = get_column_letter(export_income_col)
+                formula = f"={import_cost_col_letter}{row}-{export_income_col_letter}{row}"                                
                 cell.value = formula
                 cell.number_format = '£#,##0.00'
             
-            # Set no_solar_cost formula: ((import + pv_to_home - battery) * baseline_rate)
-            if no_solar_cost_col and import_col and pv_col and battery_col:
-                cell = worksheet.cell(row=row, column=no_solar_cost_col)
-                import_col_letter = get_column_letter(import_col)
-                pv_col_letter = get_column_letter(pv_col)
-                battery_col_letter = get_column_letter(battery_col)
-                formula = f"=(({import_col_letter}{row}+{pv_col_letter}{row})-{battery_col_letter}{row})*{baseline_rate}"
-                cell.value = formula
-                cell.number_format = '£#,##0.00'
-            
+            # DO NOT SET formula for no_solar_cost as baseline_rate may change and we want to preserve historical values
+
             # Set net_returns formula: no_solar_cost - actual_cost
             if net_returns_col and no_solar_cost_col and actual_cost_col:
                 cell = worksheet.cell(row=row, column=net_returns_col)
