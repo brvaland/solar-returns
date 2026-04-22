@@ -10,7 +10,7 @@ load_dotenv()
 TARIFF_DEFINITIONS = {
     'OCTOPUS_INTELLI_FLUX': {
         'description': 'Integration Flux - 2 rates (peak and off-peak)',
-        'rate_periods': ['peak', 'offpeak'],
+        'rate_periods': ['offpeak', 'peak'],
         'hours': {
             'peak_start': 16,
             'peak_end': 19,
@@ -20,11 +20,11 @@ TARIFF_DEFINITIONS = {
     },
     'OCTOPUS_FLUX': {
         'description': 'Standard Flux - 3 rates (peak, standard, and off-peak)',
-        'rate_periods': ['peak', 'standard', 'offpeak'],
+        'rate_periods': ['offpeak', 'standard', 'peak'],
         'hours': {
             'peak_start': 16,
             'peak_end': 19,
-            'offpeak_start': 1,
+            'offpeak_start': 2,
             'offpeak_end': 5
         }
     }
