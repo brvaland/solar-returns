@@ -101,6 +101,96 @@ def extract_date_part(iso_date):
         return iso_date.split("T")[0]
     return iso_date
 
+def prompt_for_tariff_selection():
+    """
+    Prompt user to select a tariff from available options.
+    Returns tariff name and tariff definition.
+    """
+    from config.settings import TARIFF_DEFINITIONS
+    
+    print("\n" + "="*60)
+    print("TARIFF SELECTION")
+    print("="*60 + "\n")
+    
+    tariff_list = list(TARIFF_DEFINITIONS.items())
+    for idx, (tariff_name, tariff_def) in enumerate(tariff_list, 1):
+        print(f"{idx}. {tariff_name}")
+        print(f"   {tariff_def['description']}")
+        print(f"   Rate periods: {', '.join(tariff_def['rate_periods'])}")
+        print()
+    
+    while True:
+        try:
+            choice = input(f"Select tariff (1-{len(tariff_list)}): ").strip()
+            choice_idx = int(choice) - 1
+            if 0 <= choice_idx < len(tariff_list):
+                tariff_name, tariff_def = tariff_list[choice_idx]
+                print(f"\n✓ Selected: {tariff_name}\n")
+                return tariff_name, tariff_def
+            else:
+                print(f"Error: Please enter a number between 1 and {len(tariff_list)}")
+        except ValueError:
+            print("Error: Please enter a valid number")
+
+def prompt_for_rates(selected_tariff_name, tariff_def):
+    """
+    Prompt user for rates based on selected tariff type.
+    Returns dict with import and export rates for each period.
+    """
+    rate_periods = tariff_def['rate_periods']
+    print("="*60)
+    print("RATE CONFIGURATION (press Enter to use defaults)")
+    print("="*60 + "\n")
+    
+    from config.settings import (
+        IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE, IMPORT_STANDARD_RATE,
+        EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE, EXPORT_STANDARD_RATE
+    )
+    
+    rates = {
+        'peak': {'import': None, 'export': None},
+        'standard': {'import': None, 'export': None},
+        'offpeak': {'import': None, 'export': None}
+    }
+    
+    # Map rate defaults
+    rate_defaults = {
+        'peak': {'import': IMPORT_PEAK_RATE, 'export': EXPORT_PEAK_RATE},
+        'standard': {'import': IMPORT_STANDARD_RATE, 'export': EXPORT_STANDARD_RATE},
+        'offpeak': {'import': IMPORT_OFFPEAK_RATE, 'export': EXPORT_OFFPEAK_RATE}
+    }
+    
+    # Prompt for each rate period in the tariff
+    for period in rate_periods:
+        print(f"\n{period.upper()} RATE:")
+        
+        # Import rate
+        import_default = rate_defaults[period]['import']
+        import_input = input(f"  Import {period} rate (default: {import_default}): ").strip()
+        if import_input:
+            try:
+                rates[period]['import'] = float(import_input)
+            except ValueError:
+                print(f"    Error: Invalid rate, using default {import_default}")
+                rates[period]['import'] = import_default
+        else:
+            rates[period]['import'] = import_default
+        
+        # Export rate
+        export_default = rate_defaults[period]['export']
+        export_input = input(f"  Export {period} rate (default: {export_default}): ").strip()
+        if export_input:
+            try:
+                rates[period]['export'] = float(export_input)
+            except ValueError:
+                print(f"    Error: Invalid rate, using default {export_default}")
+                rates[period]['export'] = export_default
+        else:
+            rates[period]['export'] = export_default
+    
+    print()
+    return rates
+
 def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:00:00Z",
          import_peak_rate=None, import_offpeak_rate=None, export_peak_rate=None, export_offpeak_rate=None, baseline_rate=None):
     logger.info("Starting solar return calculation")
@@ -354,54 +444,22 @@ if __name__ == "__main__":
         print("\nThis utility calculates your solar import/export returns")
         print("with peak (16:00-19:00) and off-peak rate calculations.\n")
         print("Results are saved to Excel with professional formatting.")
-        print("You will be prompted for rates and dates if not provided.")
+        print("You will be prompted for tariff selection, rates and dates.\n")
         
-        # Import default rates from settings
-        from config.settings import IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE, EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE, BASELINE_RATE
+        # Step 1: Tariff selection
+        selected_tariff_name, selected_tariff_def = prompt_for_tariff_selection()
         
-        # Prompt for rate parameters first
-        print("\nRate Configuration (press Enter to use defaults):")
+        # Step 2: Rate input based on tariff
+        rates_dict = prompt_for_rates(selected_tariff_name, selected_tariff_def)
         
-        import_offpeak_input = input(f"Enter import off-peak rate (default: {IMPORT_OFFPEAK_RATE}): ").strip()
-        if import_offpeak_input:
-            try:
-                args.import_offpeak_rate = float(import_offpeak_input)
-            except ValueError:
-                print(f"Error: Invalid import off-peak rate '{import_offpeak_input}', using default {IMPORT_OFFPEAK_RATE}")
-                args.import_offpeak_rate = IMPORT_OFFPEAK_RATE
-        else:
-            args.import_offpeak_rate = IMPORT_OFFPEAK_RATE
+        # Map rates to the function parameters
+        args.import_peak_rate = rates_dict['peak']['import']
+        args.export_peak_rate = rates_dict['peak']['export']
+        args.import_offpeak_rate = rates_dict['offpeak']['import']
+        args.export_offpeak_rate = rates_dict['offpeak']['export']
         
-        import_peak_input = input(f"Enter import peak rate (default: {IMPORT_PEAK_RATE}): ").strip()
-        if import_peak_input:
-            try:
-                args.import_peak_rate = float(import_peak_input)
-            except ValueError:
-                print(f"Error: Invalid import peak rate '{import_peak_input}', using default {IMPORT_PEAK_RATE}")
-                args.import_peak_rate = IMPORT_PEAK_RATE
-        else:
-            args.import_peak_rate = IMPORT_PEAK_RATE
-        
-        export_offpeak_input = input(f"Enter export off-peak rate (default: {EXPORT_OFFPEAK_RATE}): ").strip()
-        if export_offpeak_input:
-            try:
-                args.export_offpeak_rate = float(export_offpeak_input)
-            except ValueError:
-                print(f"Error: Invalid export off-peak rate '{export_offpeak_input}', using default {EXPORT_OFFPEAK_RATE}")
-                args.export_offpeak_rate = EXPORT_OFFPEAK_RATE
-        else:
-            args.export_offpeak_rate = EXPORT_OFFPEAK_RATE
-        
-        export_peak_input = input(f"Enter export peak rate (default: {EXPORT_PEAK_RATE}): ").strip()
-        if export_peak_input:
-            try:
-                args.export_peak_rate = float(export_peak_input)
-            except ValueError:
-                print(f"Error: Invalid export peak rate '{export_peak_input}', using default {EXPORT_PEAK_RATE}")
-                args.export_peak_rate = EXPORT_PEAK_RATE
-        else:
-            args.export_peak_rate = EXPORT_PEAK_RATE
-        
+        # Import baseline rate from settings
+        from config.settings import BASELINE_RATE
         baseline_input = input(f"Enter baseline rate (default: {BASELINE_RATE}): ").strip()
         if baseline_input:
             try:
@@ -412,7 +470,7 @@ if __name__ == "__main__":
         else:
             args.baseline_rate = BASELINE_RATE
         
-        # Save the entered rates to config.yaml file for future use
+        # Save the selected tariff and rates to config.yaml for future use (flat structure)
         try:
             import yaml
             config_file_path = "config.yaml"
@@ -423,27 +481,36 @@ if __name__ == "__main__":
                 with open(config_file_path, 'r') as f:
                     config_data = yaml.safe_load(f) or {}
             
-            # Update rates section
-            config_data['rates'] = {
-                'import_peak_rate': args.import_peak_rate,
-                'import_offpeak_rate': args.import_offpeak_rate,
-                'export_peak_rate': args.export_peak_rate,
-                'export_offpeak_rate': args.export_offpeak_rate,
-                'baseline_rate': args.baseline_rate
-            }
+            # Add tariff name at top level
+            config_data['TARIFF'] = selected_tariff_name
+            
+            # Update rates section (flat structure)
+            if 'rates' not in config_data:
+                config_data['rates'] = {}
+            
+            # Add all rate periods (import and export)
+            for period in selected_tariff_def['rate_periods']:
+                config_data['rates'][f'import_{period}_rate'] = rates_dict[period]['import']
+                config_data['rates'][f'export_{period}_rate'] = rates_dict[period]['export']
+            
+            # Preserve baseline rate at top level
+            if args.baseline_rate is not None:
+                config_data['baseline_rate'] = args.baseline_rate
             
             # Write back to config.yaml
             with open(config_file_path, 'w') as f:
                 yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
             
-            print(f"✓ Rates saved to {config_file_path} for future use")
+            print(f"✓ Tariff '{selected_tariff_name}' and rates saved to {config_file_path}")
             
         except ImportError:
-            print("Warning: PyYAML not available, rates not saved")
+            print("Warning: PyYAML not available, tariff not saved")
         except Exception as e:
-            print(f"Warning: Could not save rates to config.yaml: {e}")
+            print(f"Warning: Could not save tariff to config.yaml: {e}")
         
-        print("\nDate Configuration:")
+        print("\n" + "="*60)
+        print("DATE CONFIGURATION")
+        print("="*60)
         
         # Try to get defaults from last row in Excel file
         auto_dates = get_default_dates_from_last_row()

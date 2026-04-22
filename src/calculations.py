@@ -1,13 +1,16 @@
 from config.settings import (
-    PEAK_START_HOUR, PEAK_END_HOUR
+    PEAK_START_HOUR, PEAK_END_HOUR, OFFPEAK_START_HOUR, OFFPEAK_END_HOUR, ACTIVE_TARIFF_NAME
 )
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-def is_peak_hour(interval_start_str):
+def get_rate_period(interval_start_str):
     """
-    Determine if a given interval is during peak hours in UK timezone.
-    Peak hours: 15:00 - 18:00 UK time (handles BST/GMT)
+    Determine the rate period for a given interval in UK timezone.
+    Returns: 'peak', 'offpeak', or 'standard'
+    
+    For 2-rate tariffs: returns 'peak' or 'offpeak'
+    For 3-rate tariffs: returns 'peak', 'offpeak', or 'standard'
     """
     # Parse the ISO timestamp
     dt = datetime.fromisoformat(interval_start_str.replace('Z', '+00:00'))
@@ -17,25 +20,69 @@ def is_peak_hour(interval_start_str):
     dt_uk = dt.astimezone(uk_tz)
     
     hour = dt_uk.hour
-    return PEAK_START_HOUR <= hour < PEAK_END_HOUR
-
-def get_rate(is_peak, rate_type, import_peak_rate, import_offpeak_rate, export_peak_rate, export_offpeak_rate):
+    
+    # Check peak hours
+    if PEAK_START_HOUR <= hour < PEAK_END_HOUR:
+        return 'peak'
+    
+    # Check off-peak hours
+    if ACTIVE_TARIFF_NAME == 'OCTOPUS_INTELLI_FLUX':
+        return 'offpeak'
+    else:
+        # For 3-rate tariffs, determine off-peak hours with wrap-around logic
+        if OFFPEAK_START_HOUR <= hour < OFFPEAK_END_HOUR:
+            return 'offpeak'
+        else:
+            return 'standard'
+    
+def is_peak_hour(interval_start_str):
     """
-    Get the appropriate rate based on peak/off-peak and type (import/export).
+    Determine if a given interval is during peak hours in UK timezone.
+    (DEPRECATED: use get_rate_period() instead)
+    """
+    return get_rate_period(interval_start_str) == 'peak'
+
+def get_rate(rate_period, rate_type, import_peak_rate, import_offpeak_rate, export_peak_rate, 
+             export_offpeak_rate, import_standard_rate=None, export_standard_rate=None):
+    """
+    Get the appropriate rate based on rate period and type (import/export).
+    Supports 2-rate (peak/offpeak) and 3-rate (peak/standard/offpeak) tariffs.
+    
+    Args:
+        rate_period: 'peak', 'offpeak', or 'standard'
+        rate_type: 'import' or 'export'
+        import_peak_rate, import_offpeak_rate: Required rates
+        export_peak_rate, export_offpeak_rate: Required rates
+        import_standard_rate, export_standard_rate: Optional rates for 3-rate tariffs
     """
     if rate_type == "import":
-        return import_peak_rate if is_peak else import_offpeak_rate
+        if rate_period == "peak":
+            return import_peak_rate
+        elif rate_period == "offpeak":
+            return import_offpeak_rate
+        elif rate_period == "standard":
+            return import_standard_rate or import_offpeak_rate  # Fallback to offpeak if no standard
+        else:
+            raise ValueError(f"Invalid rate_period: {rate_period}")
     elif rate_type == "export":
-        return export_peak_rate if is_peak else export_offpeak_rate
+        if rate_period == "peak":
+            return export_peak_rate
+        elif rate_period == "offpeak":
+            return export_offpeak_rate
+        elif rate_period == "standard":
+            return export_standard_rate or export_offpeak_rate  # Fallback to offpeak if no standard
+        else:
+            raise ValueError(f"Invalid rate_period: {rate_period}")
     else:
         raise ValueError(f"Invalid rate_type: {rate_type}")
 
 def calculate_return_for_interval(import_consumption, export_consumption, 
                                   interval_start, pv_to_home_kwh=0, grid_to_battery_kwh=0,
                                   import_peak_rate=None, import_offpeak_rate=None, 
-                                  export_peak_rate=None, export_offpeak_rate=None):
+                                  export_peak_rate=None, export_offpeak_rate=None,
+                                  import_standard_rate=None, export_standard_rate=None):
     """
-    Calculate return for a single half-hour interval with peak/off-peak rates.
+    Calculate return for a single half-hour interval with peak/off-peak/standard rates.
     
     Args:
         import_consumption: kWh imported in this interval
@@ -47,6 +94,8 @@ def calculate_return_for_interval(import_consumption, export_consumption,
         import_offpeak_rate: Off-peak import rate (optional, uses settings default)
         export_peak_rate: Peak export rate (optional, uses settings default)
         export_offpeak_rate: Off-peak export rate (optional, uses settings default)
+        import_standard_rate: Standard import rate for 3-rate tariffs (optional)
+        export_standard_rate: Standard export rate for 3-rate tariffs (optional)
     
     Returns:
         Dictionary with calculated values for this interval
@@ -54,15 +103,20 @@ def calculate_return_for_interval(import_consumption, export_consumption,
     # Import defaults from settings if not provided
     if import_peak_rate is None or import_offpeak_rate is None or export_peak_rate is None or export_offpeak_rate is None:
         from config.settings import IMPORT_PEAK_RATE, IMPORT_OFFPEAK_RATE, EXPORT_PEAK_RATE, EXPORT_OFFPEAK_RATE
+        from config.settings import IMPORT_STANDARD_RATE, EXPORT_STANDARD_RATE
         import_peak_rate = import_peak_rate or IMPORT_PEAK_RATE
         import_offpeak_rate = import_offpeak_rate or IMPORT_OFFPEAK_RATE
         export_peak_rate = export_peak_rate or EXPORT_PEAK_RATE
         export_offpeak_rate = export_offpeak_rate or EXPORT_OFFPEAK_RATE
+        import_standard_rate = import_standard_rate or IMPORT_STANDARD_RATE
+        export_standard_rate = export_standard_rate or EXPORT_STANDARD_RATE
     
-    peak = is_peak_hour(interval_start)
+    period = get_rate_period(interval_start)
     
-    import_rate = get_rate(peak, "import", import_peak_rate, import_offpeak_rate, export_peak_rate, export_offpeak_rate)
-    export_rate = get_rate(peak, "export", import_peak_rate, import_offpeak_rate, export_peak_rate, export_offpeak_rate)
+    import_rate = get_rate(period, "import", import_peak_rate, import_offpeak_rate, 
+                          export_peak_rate, export_offpeak_rate, import_standard_rate, export_standard_rate)
+    export_rate = get_rate(period, "export", import_peak_rate, import_offpeak_rate, 
+                          export_peak_rate, export_offpeak_rate, import_standard_rate, export_standard_rate)
     
     pv_to_home_savings = pv_to_home_kwh * import_rate
     export_income = export_consumption * export_rate
@@ -75,7 +129,8 @@ def calculate_return_for_interval(import_consumption, export_consumption,
         "export_income": export_income,
         "pv_to_home_kwh": pv_to_home_kwh,
         "grid_to_battery_kwh": grid_to_battery_kwh,
-        "is_peak": peak
+        "is_peak": period == 'peak',
+        "rate_period": period
     }
 
 def aggregate_by_peak_offpeak(all_results):
