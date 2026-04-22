@@ -24,7 +24,7 @@ TARIFF_DEFINITIONS = {
         'hours': {
             'peak_start': 16,
             'peak_end': 19,
-            'offpeak_start': 1,
+            'offpeak_start': 2,
             'offpeak_end': 5
         }
     }
