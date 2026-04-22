@@ -179,7 +179,7 @@ def prompt_for_rates(selected_tariff_name, tariff_def):
     return rates
 
 def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:00:00Z",
-         import_peak_rate=None, import_offpeak_rate=None, export_peak_rate=None, export_offpeak_rate=None, baseline_rate=None):
+         import_peak_rate=None, import_offpeak_rate=None, export_peak_rate=None, export_offpeak_rate=None, import_standard_rate=None, export_standard_rate=None, baseline_rate=None):
     logger.info("Starting solar return calculation")
     logger.info(f"Date range: {target_date_from} to {target_date_to}")
 
@@ -265,7 +265,7 @@ def main(target_date_from="2026-03-04T00:00:00Z", target_date_to="2026-04-01T00:
         results = calculate_return_for_interval(
             import_kwh, export_kwh, interval_start,
             pv_to_home_kwh, grid_to_battery_kwh,
-            import_peak_rate, import_offpeak_rate, export_peak_rate, export_offpeak_rate
+            import_peak_rate, import_offpeak_rate, import_standard_rate, export_peak_rate, export_offpeak_rate, export_standard_rate
         )
         
         # Extract month from interval_start
@@ -444,6 +444,8 @@ if __name__ == "__main__":
         args.export_peak_rate = rates_dict['peak']['export']
         args.import_offpeak_rate = rates_dict['offpeak']['import']
         args.export_offpeak_rate = rates_dict['offpeak']['export']
+        args.import_standard_rate = rates_dict['standard']['import']
+        args.export_standard_rate = rates_dict['standard']['export']
         
         # Import baseline rate from settings
         from config.settings import BASELINE_RATE
@@ -547,4 +549,4 @@ if __name__ == "__main__":
         print("="*60 + "\n")
     
     main(args.target_date_from, args.target_date_to, 
-         args.import_peak_rate, args.import_offpeak_rate, args.export_peak_rate, args.export_offpeak_rate, args.baseline_rate)
+         args.import_peak_rate, args.import_offpeak_rate, args.export_peak_rate, args.export_offpeak_rate, args.import_standard_rate, args.export_standard_rate, args.baseline_rate)
